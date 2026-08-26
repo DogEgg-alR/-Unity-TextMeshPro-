@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>贝塞尔曲线生成器</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f1f2f6; --card:#ffffff; --text:#23262d; --muted:#7d828e; --border:#e4e6ee;
+  --blue:#2f6bff; --yellow:#e8a800;
+  --grid:#e9ebf1; --gridstrong:#cfd3de;
+  --track:#edeff4; --chip:#f5f6fa;
+  --shadow:0 6px 20px rgba(35,40,70,.08);
+}
+html[data-theme=dark]{
+  --bg:#131418; --card:#1e2026; --text:#e9ebf1; --muted:#9aa0ae; --border:#32353e;
+  --blue:#6b93ff; --yellow:#ffd76a;
+  --grid:#2a2d36; --gridstrong:#464b58; --track:#2a2d36; --chip:#272a32;
+  --shadow:0 6px 20px rgba(0,0,0,.45);
+}
+body{font-family:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+header{display:flex;justify-content:space-between;align-items:center;padding:16px 22px;gap:12px;flex-wrap:wrap}
+.hbtns{display:flex;gap:8px;flex-wrap:wrap}
+h1{font-size:17px;font-weight:700}
+h1 .sub{font-weight:400;color:var(--muted);font-size:13px;margin-left:8px}
+.wrap{display:flex;flex-wrap:wrap;gap:18px;padding:0 22px 34px;justify-content:center;align-items:flex-start}
+.card{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:16px;flex:1 1 340px;max-width:500px}
+.card.right{flex:1 1 320px;max-width:460px}
+button{cursor:pointer;border:none;border-radius:8px;font-size:13px;padding:9px 16px;font-family:inherit}
+.btn{background:var(--text);color:var(--bg);font-weight:600}
+.btn.blue{background:var(--blue);color:#fff}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
+.btn.full{width:100%;margin-top:12px}
+h2{font-size:13px;letter-spacing:.6px;margin:18px 0 10px;color:var(--muted)}
+.valuebar{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.valuebar code{font-family:ui-monospace,Consolas,monospace;font-size:15px;background:var(--chip);padding:7px 10px;border-radius:8px;flex:1;min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#graph{width:100%;height:auto;touch-action:none;display:block;user-select:none;-webkit-user-select:none;cursor:crosshair;background:var(--chip);border-radius:10px}
+.gline{stroke:var(--grid);stroke-width:1}
+.glineS{stroke:var(--gridstrong);stroke-width:1.5}
+.linref{stroke:var(--gridstrong);stroke-width:1;opacity:.7}
+.cpath{stroke:var(--text);stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.ccmp{stroke:var(--yellow);stroke-width:2.5;fill:none;stroke-dasharray:7 5}
+.hl{stroke-width:2;opacity:.55}
+.hl-blue{stroke:var(--blue)}
+.hl-yellow{stroke:var(--yellow)}
+.handle{stroke:#fff;stroke-width:2;cursor:grab}
+.h-blue{fill:var(--blue)}
+.h-yellow{fill:var(--yellow)}
+.hit{fill:transparent;pointer-events:all;cursor:grab}
+.axis{fill:var(--muted);font-size:14px;letter-spacing:4px}
+.gorow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.chip{font-size:12px;background:var(--chip);border-radius:8px;padding:4px 8px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#cmpChip{color:var(--yellow);flex:1;min-width:80px}
+.xbtn{background:none;color:var(--muted);font-size:15px;padding:4px 8px}
+.durrow{display:flex;align-items:center;gap:10px;font-size:13px;margin:12px 0}
+input[type=range]{flex:1;accent-color:var(--blue);min-width:60px}
+#durLbl{min-width:48px;color:var(--muted);text-align:right}
+.track{position:relative;height:64px;background:var(--track);border-radius:10px;overflow:hidden}
+.sq{position:absolute;top:18px;left:8px;width:28px;height:28px;border-radius:6px;will-change:transform}
+.sq.blue{background:var(--blue)}
+.sq.yellow{background:var(--yellow)}
+.hint{font-size:12px;color:var(--muted);margin:8px 0 2px;line-height:1.6}
+/* 预设网格：单页平铺，形似参考图 */
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(86px,1fr));gap:8px;margin-top:10px}
+.preset{position:relative;background:var(--chip);border:2px solid transparent;border-radius:10px;padding:6px 4px 5px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer}
+.preset:hover{border-color:var(--gridstrong)}
+.preset.active{border-color:var(--yellow)}
+.preset svg{width:100%;height:44px;display:block;color:var(--text)}
+.preset span{font-size:11px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ctools{display:flex;justify-content:space-between;align-items:center;width:100%;height:14px}
+.preset .del{font-size:13px;color:var(--muted);background:none;padding:0 3px;line-height:1}
+.preset .ren{font-size:11px;color:var(--muted);background:none;padding:0 3px;line-height:1}
+.preset .ren:hover,.preset .del:hover{color:var(--text)}
+.hidden{display:none!important}
+/* 模态框 */
+.modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal{background:var(--card);border-radius:14px;box-shadow:var(--shadow);max-width:360px;width:100%;padding:20px}
+.modal h3{font-size:15px;margin-bottom:8px}
+.modal p{font-size:13.5px;color:var(--muted);line-height:1.6;word-break:break-all}
+.modal .mrow{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+.minput{width:100%;margin:12px 0 2px;padding:9px 10px;border-radius:8px;border:1px solid var(--border);background:var(--chip);color:var(--text);font-size:14px;font-family:inherit}
+.minput:focus{outline:2px solid var(--blue);border-color:transparent}
+.swatches{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:8px;margin:12px 0 4px}
+.swatch{display:flex;align-items:center;gap:6px;background:var(--chip);border:2px solid transparent;border-radius:8px;padding:8px 10px;font-size:12px;color:var(--text);font-family:inherit;white-space:nowrap;overflow:hidden}
+.swatch:hover{border-color:var(--gridstrong)}
+.dot{width:13px;height:13px;border-radius:50%;flex:none}
+.cpick{display:flex;align-items:center;gap:10px;margin:10px 0 2px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.cpick input[type=color]{width:44px;height:32px;border:none;border-radius:6px;background:none;cursor:pointer;padding:0}
+/* 移动端适配 */
+@media (max-width:640px){
+  header{padding:12px 14px}
+  .wrap{padding:0 12px 24px;gap:12px}
+  .card,.card.right{padding:12px;flex:1 1 100%;max-width:100%}
+  .pgrid{grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px}
+  .track{height:56px}
+  .valuebar code{font-size:13px}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>贝塞尔曲线生成器<span class="sub">Cubic Bezier Generator</span></h1>
+  <div class="hbtns">
+    <button id="colorBtn" class="btn ghost">🎨 主题色</button>
+    <button id="themeBtn" class="btn ghost">🌙 深色</button>
+  </div>
+</header>
+<div class="wrap">
+  <section class="card">
+    <div class="valuebar">
+      <code id="val">cubic-bezier(.17,.67,.83,.67)</code>
+      <button id="copyBtn" class="btn blue">复制</button>
+    </div>
+    <svg id="graph" viewBox="0 0 460 560" role="img" aria-label="贝塞尔曲线编辑器"></svg>
+    <button id="saveBtn" class="btn full">导入到您的曲线</button>
+  </section>
+
+  <section class="card right">
+    <h2>预览与对比</h2>
+    <div class="gorow">
+      <button id="goBtn" class="btn">播放</button>
+      <span id="cmpChip" class="chip hidden"></span>
+      <button id="useCmp" class="btn ghost hidden">设为当前</button>
+      <button id="clearCmp" class="xbtn hidden" title="取消对比">×</button>
+    </div>
+    <div class="durrow">
+      <span>时长:</span>
+      <input type="range" id="dur" min="0.1" max="3" step="0.05" value="1">
+      <span id="durLbl">1 秒</span>
+    </div>
+    <div class="track" id="track">
+      <div class="sq blue" id="sq1"></div>
+      <div class="sq yellow hidden" id="sq2"></div>
+    </div>
+
+    <h2>您的曲线</h2>
+    <p class="hint" id="libHint">列表中为先前点击「导入到您的曲线」的所有曲线，自动保存在本浏览器中，刷新后不会丢失。单击可与当前曲线对比（黄色虚线 + 双方块动画），双击可直接载入编辑器；带 ✎ 的可重命名，× 可删除。</p>
+    <div id="libGrid" class="pgrid"></div>
+    <h2>预设</h2>
+    <p class="hint">单击可与当前曲线对比，双击可直接载入编辑器。</p>
+    <div id="presetGrid" class="pgrid"></div>
+  </section>
+</div>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const NS = 'http://www.w3.org/2000/svg';
+const clamp = (v,a,b) => Math.min(b, Math.max(a, v));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const X = v => 40 + v * 400;            // x: 0..1 -> 40..440
+const Y = v => 530 - (v + 0.5) * 250;   // y: -0.5..1.5 -> 530..30
+const S = { x1:.17, y1:.67, x2:.83, y2:.67 };
+let cmp = null;      // 当前对比曲线 {name, v}
+let custom = [];     // 自定义曲线
+
+/* ---------- 本地持久化（localStorage，不可用时自动降级为内存模式） ---------- */
+const store = (() => {
+  try {
+    const k = '__bez_test__';
+    window.localStorage.setItem(k, '1');
+    window.localStorage.removeItem(k);
+    return window.localStorage;
+  } catch(err){ return null; }
+})();
+const K_CURVES = 'bezierCurves', K_THEME = 'bezierThemeMode', K_COLORS = 'bezierThemeColors';
+function saveCurves(){
+  if (!store) return;
+  try { store.setItem(K_CURVES, JSON.stringify(custom)); } catch(err){}
+}
+function loadCurves(){
+  if (!store) return;
+  try {
+    const arr = JSON.parse(store.getItem(K_CURVES) || '[]');
+    if (!Array.isArray(arr)) return;
+    arr.forEach(it => {
+      if (!it || !Array.isArray(it.v) || it.v.length !== 4) return;
+      const v = it.v.map(Number);
+      if (v.some(isNaN)) return;
+      v[0] = clamp(v[0], 0, 1);     v[2] = clamp(v[2], 0, 1);
+      v[1] = clamp(v[1], -.5, 1.5); v[3] = clamp(v[3], -.5, 1.5);
+      if (custom.some(c => vstr(c.v) === vstr(v))) return;
+      custom.push({ name: String(it.name || '自定义').slice(0, 20), v });
+    });
+  } catch(err){}
+}
+
+/* ---------- 数值格式化：0.17 -> .17 ---------- */
+function fmt(v){
+  let s = (Math.round(v*100)/100).toFixed(2).replace(/0+$/,'').replace(/\.$/,'');
+  if (s === '-0') s = '0';
+  return s.replace(/^(-?)0\./, '$1.');
+}
+const vstr = v => v.map(fmt).join(',');
+const curV = () => [S.x1, S.y1, S.x2, S.y2];
+
+/* ---------- 贝塞尔采样 ---------- */
+function bez(v, t){
+  const [x1,y1,x2,y2] = v, u = 1 - t;
+  return {
+    x: 3*u*u*t*x1 + 3*u*t*t*x2 + t*t*t,
+    y: 3*u*u*t*y1 + 3*u*t*t*y2 + t*t*t
+  };
+}
+function pathD(v){
+  let d = '';
+  for (let i = 0; i <= 100; i++){
+    const p = bez(v, i/100);
+    d += (i ? 'L' : 'M') + X(p.x).toFixed(1) + ' ' + Y(p.y).toFixed(1) + ' ';
+  }
+  return d;
+}
+
+/* ---------- 构建编辑器网格 ---------- */
+const graph = $('#graph');
+function el(tag, attrs){
+  const n = document.createElementNS(NS, tag);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  return n;
+}
+(function buildGraph(){
+  for (let i = 0; i <= 4; i++){
+    const x = X(i/4);
+    graph.appendChild(el('line', {x1:x, y1:Y(-.5), x2:x, y2:Y(1.5), class: (i===0||i===4)?'glineS':'gline'}));
+  }
+  for (let j = 0; j <= 8; j++){
+    const y = Y(-.5 + j*.25);
+    graph.appendChild(el('line', {x1:X(0), y1:y, x2:X(1), y2:y, class: (j===2||j===6)?'glineS':'gline'}));
+  }
+  graph.appendChild(el('line', {x1:X(0), y1:Y(0), x2:X(1), y2:Y(1), class:'linref'}));
+  graph.appendChild(el('path', {id:'cmpPath', class:'ccmp', d:''}));
+  graph.appendChild(el('path', {id:'mainPath', class:'cpath', d:''}));
+  graph.appendChild(el('line', {id:'hl1', class:'hl hl-blue'}));
+  graph.appendChild(el('line', {id:'hl2', class:'hl hl-yellow'}));
+  graph.appendChild(el('circle', {id:'h1', class:'handle h-blue', r:8}));
+  graph.appendChild(el('circle', {id:'h2', class:'handle h-yellow', r:8}));
+  graph.appendChild(el('circle', {id:'hit1', class:'hit', r:24, 'data-h':'1'}));
+  graph.appendChild(el('circle', {id:'hit2', class:'hit', r:24, 'data-h':'2'}));
+  const tx = el('text', {x:240, y:554, class:'axis', 'text-anchor':'middle'});
+  tx.textContent = '时间'; graph.appendChild(tx);
+  const ty = el('text', {x:16, y:290, class:'axis', 'text-anchor':'middle', transform:'rotate(-90 16 290)'});
+  ty.textContent = '进度'; graph.appendChild(ty);
+})();
+
+function render(){
+  const v = curV();
+  $('#val').textContent = 'cubic-bezier(' + vstr(v) + ')';
+  $('#mainPath').setAttribute('d', pathD(v));
+  const set = (id, attrs) => { const n = $('#'+id); for (const k in attrs) n.setAttribute(k, attrs[k]); };
+  set('hl1', {x1:X(0), y1:Y(0), x2:X(S.x1), y2:Y(S.y1)});
+  set('hl2', {x1:X(1), y1:Y(1), x2:X(S.x2), y2:Y(S.y2)});
+  set('h1', {cx:X(S.x1), cy:Y(S.y1)});
+  set('h2', {cx:X(S.x2), cy:Y(S.y2)});
+  set('hit1', {cx:X(S.x1), cy:Y(S.y1)});
+  set('hit2', {cx:X(S.x2), cy:Y(S.y2)});
+  $('#cmpPath').setAttribute('d', cmp ? pathD(cmp.v) : '');
+}
+
+/* ---------- 缩略图 ---------- */
+function thumb(v){
+  const mx = x => 6 + x*48, my = y => 54 - y*48;
+  let d = '';
+  for (let i = 0; i <= 60; i++){
+    const p = bez(v, i/60);
+    d += (i ? 'L' : 'M') + mx(p.x).toFixed(1) + ' ' + my(p.y).toFixed(1) + ' ';
+  }
+  return '<svg viewBox="0 0 60 60" preserveAspectRatio="none"><path d="' + d +
+         '" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>';
+}
+
+/* ---------- 预设（单页平铺，29 个） ---------- */
+const PRESETS = [
+  ['ease',[.25,.1,.25,1]], ['linear',[0,0,1,1]], ['ease-in',[.42,0,1,1]],
+  ['ease-out',[0,0,.58,1]], ['ease-in-out',[.42,0,.58,1]],
+  ['InSine',[.12,0,.39,0]], ['OutSine',[.61,1,.88,1]], ['InOutSine',[.37,0,.63,1]],
+  ['InQuad',[.11,0,.5,0]], ['OutQuad',[.5,1,.89,1]], ['InOutQuad',[.45,0,.55,1]],
+  ['InCubic',[.32,0,.67,0]], ['OutCubic',[.33,1,.68,1]], ['InOutCubic',[.65,0,.35,1]],
+  ['InQuart',[.5,0,.75,0]], ['OutQuart',[.25,1,.5,1]], ['InOutQuart',[.76,0,.24,1]],
+  ['InQuint',[.64,0,.78,0]], ['OutQuint',[.22,1,.36,1]], ['InOutQuint',[.83,0,.17,1]],
+  ['InExpo',[.7,0,.84,0]], ['OutExpo',[.16,1,.3,1]], ['InOutExpo',[.87,0,.13,1]],
+  ['InCirc',[.55,0,1,.45]], ['OutCirc',[0,.55,.45,1]], ['InOutCirc',[.85,0,.15,1]],
+  ['InBack',[.36,0,.66,-.56]], ['OutBack',[.34,1.56,.64,1]], ['InOutBack',[.68,-.6,.32,1.6]]
+];
+
+/* ---------- 模态框（所有提示） ---------- */
+function modal(title, msg, opts = {}){
+  return new Promise(res => {
+    const mask = document.createElement('div');
+    mask.className = 'modal-mask';
+    mask.innerHTML = '<div class="modal" role="dialog"><h3></h3><p></p><div class="mrow"></div></div>';
+    mask.querySelector('h3').textContent = title;
+    mask.querySelector('p').textContent = msg;
+    const row = mask.querySelector('.mrow');
+    const done = v => { mask.remove(); res(v); };
+    if (opts.cancel){
+      const b = document.createElement('button');
+      b.className = 'btn ghost'; b.textContent = opts.cancel;
+      b.onclick = () => done(false);
+      row.appendChild(b);
+    }
+    const ok = document.createElement('button');
+    ok.className = 'btn' + (opts.danger ? ' blue' : '');
+    ok.textContent = opts.ok || '确定';
+    ok.onclick = () => done(true);
+    row.appendChild(ok);
+    mask.addEventListener('click', e => { if (e.target === mask) done(false); });
+    document.body.appendChild(mask);
+    ok.focus();
+  });
+}
+const info = msg => modal('提示', msg);
+
+/* ---------- 带输入框的模态框（重命名用） ---------- */
+function promptModal(title, label, def){
+  return new Promise(res => {
+    const mask = document.createElement('div');
+    mask.className = 'modal-mask';
+    mask.innerHTML = '<div class="modal" role="dialog"><h3></h3><p></p><input class="minput" maxlength="20"><div class="mrow"></div></div>';
+    mask.querySelector('h3').textContent = title;
+    mask.querySelector('p').textContent = label;
+    const inp = mask.querySelector('.minput');
+    inp.value = def || '';
+    const row = mask.querySelector('.mrow');
+    const done = v => { mask.remove(); res(v); };
+    const c = document.createElement('button');
+    c.className = 'btn ghost'; c.textContent = '取消';
+    c.onclick = () => done(null);
+    const ok = document.createElement('button');
+    ok.className = 'btn blue'; ok.textContent = '确定';
+    ok.onclick = () => done(inp.value.trim());
+    row.append(c, ok);
+    mask.addEventListener('click', e => { if (e.target === mask) done(null); });
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') done(inp.value.trim());
+      else if (e.key === 'Escape') done(null);
+    });
+    document.body.appendChild(mask);
+    inp.focus(); inp.select();
+  });
+}
+
+/* ---------- 网格渲染：「您的曲线」 + 「预设」 ---------- */
+function makeCell(name, v, delIdx){
+  const b = document.createElement('div');
+  b.className = 'preset';
+  b.dataset.v = JSON.stringify(v); b.dataset.name = name;
+  b.innerHTML =
+    (delIdx != null
+      ? '<div class="ctools"><button class="ren" title="重命名">✎</button><button class="del" title="删除">×</button></div>'
+      : '') +
+    thumb(v) + '<span title="' + esc(name) + '">' + esc(name) + '</span>';
+  if (delIdx != null){
+    b.querySelector('.del').addEventListener('click', async e => {
+      e.stopPropagation();
+      const ok = await modal('删除确认', '确定要删除「' + name + '」吗？', {cancel:'取消', ok:'删除'});
+      if (ok){ custom.splice(delIdx, 1); saveCurves(); renderLib(); markActive(); }
+    });
+    b.querySelector('.ren').addEventListener('click', async e => {
+      e.stopPropagation();
+      const nn = await promptModal('重命名', '为这条曲线起个新名字：', name);
+      if (nn === null) return;
+      if (!nn){ info('名称不能为空'); return; }
+      custom[delIdx].name = nn;
+      if (cmp && vstr(cmp.v) === vstr(custom[delIdx].v)){
+        cmp.name = nn;
+        $('#cmpChip').textContent = '对比：' + nn + ' (' + vstr(cmp.v) + ')';
+      }
+      saveCurves(); renderLib(); markActive();
+    });
+  }
+  b.addEventListener('click', () => setCompare(name, v));
+  b.addEventListener('dblclick', () => { apply(v); info('已载入 ' + name); });
+  return b;
+}
+function renderLib(){
+  const g = $('#libGrid');
+  g.innerHTML = '';
+  if (!custom.length){
+    g.innerHTML = '<p class="hint" style="grid-column:1/-1;margin:0">暂无曲线，编辑器中点击「导入到您的曲线」即可添加。</p>';
+    return;
+  }
+  custom.forEach((it, i) => g.appendChild(makeCell(it.name, it.v, i)));
+}
+function renderPresets(){
+  const g = $('#presetGrid');
+  g.innerHTML = '';
+  PRESETS.forEach(([name, v]) => g.appendChild(makeCell(name, v, null)));
+}
+function markActive(){
+  document.querySelectorAll('.preset').forEach(p => {
+    p.classList.toggle('active', !!cmp && p.dataset.name === cmp.name && p.dataset.v === JSON.stringify(cmp.v));
+  });
+}
+
+/* ---------- 拖拽控制点（鼠标 + 触摸，Pointer Events） ---------- */
+let drag = null;
+function ptFromEvent(e){
+  const r = graph.getBoundingClientRect();
+  const px = (e.clientX - r.left) * 460 / r.width;
+  const py = (e.clientY - r.top) * 560 / r.height;
+  return { x: clamp((px - 40) / 400, 0, 1), y: clamp((530 - py) / 250 - 0.5, -0.5, 1.5) };
+}
+[['hit1', 1], ['hit2', 2]].forEach(([id, n]) => {
+  const h = document.getElementById(id);
+  h.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    drag = n;
+    try { h.setPointerCapture(e.pointerId); } catch(err){}
+  });
+  h.addEventListener('pointermove', e => {
+    if (drag !== n) return;
+    const p = ptFromEvent(e);
+    if (n === 1){ S.x1 = p.x; S.y1 = p.y; } else { S.x2 = p.x; S.y2 = p.y; }
+    render();
+  });
+  const end = () => { drag = null; };
+  h.addEventListener('pointerup', end);
+  h.addEventListener('pointercancel', end);
+});
+
+/* ---------- 预览动画 ---------- */
+const track = $('#track'), sq1 = $('#sq1'), sq2 = $('#sq2'), dur = $('#dur');
+dur.addEventListener('input', () => {
+  const v = +dur.value;
+  $('#durLbl').textContent = (v === 1 ? '1 秒' : v + ' 秒');
+});
+$('#goBtn').addEventListener('click', play);
+function play(){
+  const d = Math.round(+dur.value * 1000);
+  const dist = Math.max(40, track.clientWidth - 28 - 16);
+  anim(sq1, curV(), d, dist);
+  if (cmp) anim(sq2, cmp.v, d, dist);
+}
+function anim(elm, v, d, dist){
+  elm.getAnimations().forEach(a => a.cancel());
+  elm.animate(
+    [{transform:'translateX(0)'}, {transform:'translateX(' + dist + 'px)'}],
+    {duration: d, easing: 'cubic-bezier(' + v.map(n => +n.toFixed(3)).join(',') + ')', fill: 'forwards'}
+  );
+}
+
+/* ---------- 对比逻辑 ---------- */
+function setCompare(name, v){
+  cmp = { name, v: v.slice() };
+  $('#sq2').classList.remove('hidden');
+  $('#cmpChip').textContent = '对比：' + name + ' (' + vstr(v) + ')';
+  $('#cmpChip').classList.remove('hidden');
+  $('#useCmp').classList.remove('hidden');
+  $('#clearCmp').classList.remove('hidden');
+  render(); markActive(); play();
+}
+function clearCompare(){
+  cmp = null;
+  $('#sq2').classList.add('hidden');
+  $('#cmpChip').classList.add('hidden');
+  $('#useCmp').classList.add('hidden');
+  $('#clearCmp').classList.add('hidden');
+  render(); markActive();
+}
+function apply(v){ S.x1 = v[0]; S.y1 = v[1]; S.x2 = v[2]; S.y2 = v[3]; render(); }
+$('#useCmp').addEventListener('click', async () => {
+  if (cmp){
+    apply(cmp.v);
+    await info('已将 ' + cmp.name + ' 载入编辑器');
+    clearCompare();
+  }
+});
+$('#clearCmp').addEventListener('click', clearCompare);
+
+/* ---------- 导入到您的曲线 ---------- */
+$('#saveBtn').addEventListener('click', async () => {
+  const v = curV();
+  if (custom.some(c => vstr(c.v) === vstr(v))){ info('该曲线已在「您的曲线」中'); return; }
+  custom.push({ name: '自定义 ' + (custom.length + 1), v });
+  saveCurves();
+  renderLib();
+  info('已导入到您的曲线');
+});
+
+/* ---------- 复制 ---------- */
+$('#copyBtn').addEventListener('click', async () => {
+  const t = 'cubic-bezier(' + vstr(curV()) + ')';
+  try {
+    await navigator.clipboard.writeText(t);
+  } catch(err){
+    const ta = document.createElement('textarea');
+    ta.value = t; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); ta.remove();
+  }
+  info('已复制 ' + t);
+});
+
+/* ---------- 自定义主题色 ---------- */
+const THEME_PRESETS = [
+  ['蓝黄 · 默认', '#2f6bff', '#e8a800'],
+  ['粉青 · 原版', '#ec4f9f', '#10b5a5'],
+  ['紫橙', '#8b5cf6', '#f97316'],
+  ['青紫', '#0ea5e9', '#a78bfa'],
+  ['绿黄', '#10b981', '#f59e0b'],
+  ['红蓝', '#ef4444', '#3b82f6']
+];
+let customTheme = null;   // {primary, secondary}
+function lighten(hex, amt){
+  const n = parseInt(hex.slice(1), 16);
+  const mix = c => Math.round(c + (255 - c) * amt);
+  const r = mix((n >> 16) & 255), g = mix((n >> 8) & 255), b = mix(n & 255);
+  return '#' + ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
+}
+function curColors(){
+  return customTheme || { primary: THEME_PRESETS[0][1], secondary: THEME_PRESETS[0][2] };
+}
+function applyThemeColors(){
+  const root = document.documentElement;
+  if (!customTheme){
+    root.style.removeProperty('--blue');
+    root.style.removeProperty('--yellow');
+    return;
+  }
+  const dark = root.dataset.theme === 'dark';
+  root.style.setProperty('--blue',   dark ? lighten(customTheme.primary,   .32) : customTheme.primary);
+  root.style.setProperty('--yellow', dark ? lighten(customTheme.secondary, .32) : customTheme.secondary);
+}
+function themeModal(){
+  const mask = document.createElement('div');
+  mask.className = 'modal-mask';
+  const box = document.createElement('div');
+  box.className = 'modal';
+  const h = document.createElement('h3');
+  h.textContent = '自定义主题色';
+  box.appendChild(h);
+  const sw = document.createElement('div');
+  sw.className = 'swatches';
+  const close = () => mask.remove();
+  let sync = null;
+  THEME_PRESETS.forEach(([name, p, s]) => {
+    const b = document.createElement('button');
+    b.className = 'swatch';
+    b.innerHTML = '<span class="dot" style="background:' + p + '"></span><span class="dot" style="background:' + s + '"></span>' + name;
+    b.onclick = () => { customTheme = {primary:p, secondary:s}; applyThemeColors(); savePrefs(); sync(); };
+    sw.appendChild(b);
+  });
+  box.appendChild(sw);
+  const pick = document.createElement('div');
+  pick.className = 'cpick';
+  pick.innerHTML = '主色 <input type="color" aria-label="主色"> 辅色 <input type="color" aria-label="辅色">';
+  box.appendChild(pick);
+  const cp = pick.querySelectorAll('input')[0], cs = pick.querySelectorAll('input')[1];
+  sync = () => {
+    const c = curColors();
+    if (cp.value !== c.primary) cp.value = c.primary;
+    if (cs.value !== c.secondary) cs.value = c.secondary;
+  };
+  sync();
+  const onPick = () => { customTheme = {primary:cp.value, secondary:cs.value}; applyThemeColors(); savePrefs(); };
+  cp.addEventListener('input', onPick);
+  cs.addEventListener('input', onPick);
+  const row = document.createElement('div');
+  row.className = 'mrow';
+  const rst = document.createElement('button');
+  rst.className = 'btn ghost'; rst.textContent = '恢复默认';
+  rst.onclick = () => { customTheme = null; sync(); applyThemeColors(); savePrefs(); };
+  const done = document.createElement('button');
+  done.className = 'btn blue'; done.textContent = '完成';
+  done.onclick = close;
+  row.append(rst, done);
+  box.appendChild(row);
+  mask.appendChild(box);
+  mask.addEventListener('click', e => { if (e.target === mask) close(); });
+  document.body.appendChild(mask);
+}
+$('#colorBtn').addEventListener('click', themeModal);
+
+/* ---------- 深浅色主题 ---------- */
+function savePrefs(){
+  if (!store) return;
+  try {
+    store.setItem(K_THEME, document.documentElement.dataset.theme || 'light');
+    if (customTheme) store.setItem(K_COLORS, JSON.stringify(customTheme));
+    else store.removeItem(K_COLORS);
+  } catch(err){}
+}
+function setTheme(t){
+  document.documentElement.dataset.theme = t;
+  $('#themeBtn').textContent = (t === 'dark' ? '☀️ 浅色' : '🌙 深色');
+  applyThemeColors();
+  savePrefs();
+}
+$('#themeBtn').addEventListener('click', () => {
+  setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+});
+/* ---------- 初始化：加载本地数据 ---------- */
+loadCurves();
+(function initTheme(){
+  let mode = null;
+  if (store){ try { mode = store.getItem(K_THEME); } catch(err){} }
+  if (mode !== 'dark' && mode !== 'light'){
+    mode = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  }
+  if (store){
+    try {
+      const c = JSON.parse(store.getItem(K_COLORS) || 'null');
+      if (c && typeof c.primary === 'string' && typeof c.secondary === 'string'){
+        customTheme = {primary:c.primary, secondary:c.secondary};
+      }
+    } catch(err){}
+  }
+  setTheme(mode);
+})();
+if (!store){
+  const h = document.getElementById('libHint');
+  if (h) h.textContent = '列表中为先前点击「导入到您的曲线」的所有曲线。当前环境不支持本地存储，曲线仅保存在内存中，刷新后会丢失。单击可与当前曲线对比（黄色虚线 + 双方块动画），双击可直接载入编辑器；带 ✎ 的可重命名，× 可删除。';
+}
+render();
+renderLib();
+renderPresets();
+</script>
+</body>
+</html>
