@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TMP 富文本标签编辑器</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#1e1e2e;color:#cdd6f4;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+.header{background:#313244;padding:10px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid #45475a}
+.header h1{font-size:15px;color:#89b4fa;margin-right:auto;white-space:nowrap}
+.btn{padding:7px 14px;border:none;border-radius:6px;cursor:pointer;font-size:13px;transition:all .2s;white-space:nowrap}
+.btn-primary{background:#89b4fa;color:#1e1e2e;font-weight:600}
+.btn-primary:hover{background:#74c7ec}
+.btn-secondary{background:#45475a;color:#cdd6f4}
+.btn-secondary:hover{background:#585b70}
+.btn-secondary.active{background:#89b4fa;color:#1e1e2e}
+.btn-danger{background:#f38ba8;color:#1e1e2e}
+.btn-danger:hover{background:#eba0ac}
+.btn-success{background:#a6e3a1;color:#1e1e2e;font-weight:600}
+.btn-success:hover{background:#94e2d5}
+.main{flex:1;display:flex;overflow:hidden;min-height:0}
+.panel{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.panel-header{background:#313244;padding:7px 14px;font-size:12px;color:#a6adc8;border-bottom:1px solid #45475a;display:flex;justify-content:space-between;align-items:center}
+.editor-area{flex:1;width:100%;background:#1e1e2e;color:#cdd6f4;border:none;padding:14px;font-family:'Cascadia Code','Fira Code','Consolas',monospace;font-size:14px;line-height:1.6;resize:none;outline:none;tab-size:4}
+.preview-area{flex:1;padding:14px;overflow:auto;background:#181825;font-size:16px;line-height:1.6;word-wrap:break-word}
+.preview-area[contenteditable="true"]{outline:none}
+.toolbar{background:#313244;padding:8px 12px;border-top:1px solid #45475a;display:flex;flex-wrap:wrap;gap:5px;max-height:170px;overflow-y:auto}
+.toolbar-group{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.toolbar-group::before{content:attr(data-label);font-size:10px;color:#6c7086;margin-right:3px;white-space:nowrap}
+.toolbar-group+.toolbar-group{padding-left:8px;border-left:1px solid #45475a}
+.tool-btn{padding:4px 9px;background:#45475a;color:#cdd6f4;border:1px solid #585b70;border-radius:4px;cursor:pointer;font-size:12px;transition:all .15s;white-space:nowrap}
+.tool-btn:hover{background:#585b70;border-color:#89b4fa}
+.tool-btn:active{transform:scale(.95)}
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:1000;justify-content:center;align-items:center}
+.modal-overlay.show{display:flex}
+.modal{background:#313244;border-radius:12px;padding:22px;min-width:280px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.4);animation:modalIn .2s ease}
+@keyframes modalIn{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+.modal h3{margin-bottom:14px;color:#89b4fa;font-size:15px}
+.modal p{margin-bottom:14px;color:#cdd6f4;font-size:14px;line-height:1.5}
+.modal input[type="text"],.modal input[type="number"]{width:100%;padding:8px 12px;background:#1e1e2e;border:1px solid #45475a;color:#cdd6f4;border-radius:6px;font-size:14px;margin-bottom:12px;outline:none}
+.modal input:focus{border-color:#89b4fa}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.color-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin-bottom:12px}
+.color-swatch{width:100%;aspect-ratio:1;border-radius:4px;cursor:pointer;border:2px solid transparent;transition:all .15s}
+.color-swatch:hover{transform:scale(1.15);border-color:#fff}
+.color-preview{padding:12px;background:#181825;border:1px solid #45475a;border-radius:6px;margin-bottom:12px;font-size:17px;line-height:1.5;text-align:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.color-preview span{padding:1px 4px;border-radius:2px}
+.color-input-row{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+.color-input-row input[type="color"]{width:46px;height:36px;padding:2px;background:#1e1e2e;border:1px solid #45475a;border-radius:6px;cursor:pointer;flex:none}
+.color-input-row input[type="text"]{flex:1;width:auto;padding:8px 12px;background:#1e1e2e;border:1px solid #45475a;color:#cdd6f4;border-radius:6px;font-size:14px;outline:none;margin-bottom:0}
+.color-input-row input[type="text"]:focus{border-color:#89b4fa}
+.color-input-row input[type="range"]{flex:1;accent-color:#89b4fa}
+.stop-label{font-size:12px;color:#a6adc8;min-width:76px;font-family:'Cascadia Code','Consolas',monospace}
+.btn-danger:disabled{opacity:.4;cursor:not-allowed}
+.status-bar{background:#181825;padding:3px 14px;font-size:11px;color:#6c7086;display:flex;justify-content:flex-end;border-top:1px solid #313244}
+@media(max-width:768px){
+.main{flex-direction:column}
+.panel{min-height:180px}
+.header h1{font-size:13px;width:100%}
+.btn{padding:5px 10px;font-size:12px}
+.toolbar{padding:6px 8px;max-height:190px}
+.tool-btn{padding:5px 10px;font-size:12px}
+.toolbar-group{width:100%;padding-left:0!important;border-left:none!important;padding-top:3px;border-top:1px solid #45475a}
+.toolbar-group:first-child{border-top:none;padding-top:0}
+.color-grid{grid-template-columns:repeat(6,1fr)}
+.modal{min-width:85vw;padding:16px}
+}
+</style>
+</head>
+<body>
+<div class="header">
+<h1>TMP 富文本编辑器</h1>
+<button class="btn btn-secondary active" id="btnBoth" onclick="setView('both')">双栏</button>
+<button class="btn btn-secondary" id="btnSource" onclick="setView('source')">源码</button>
+<button class="btn btn-secondary" id="btnPreview" onclick="setView('preview')">预览</button>
+<button class="btn btn-success" onclick="copyToClipboard()">复制到剪贴板</button>
+<button class="btn btn-secondary" onclick="formatCode()">格式化</button>
+<button class="btn btn-danger" onclick="confirmClear()">清空</button>
+</div>
+<div class="main">
+<div class="panel" id="sourcePanel">
+<div class="panel-header"><span>源码编辑</span><span id="charCount">0 字符</span></div>
+<textarea class="editor-area" id="sourceEditor" placeholder="在此输入 TMP 富文本标签..."></textarea>
+</div>
+<div class="panel" id="previewPanel">
+<div class="panel-header"><span>可视化预览</span><span style="font-size:11px;color:#6c7086">可直接编辑</span></div>
+<div class="preview-area" id="previewArea" contenteditable="true"></div>
+</div>
+</div>
+<div class="toolbar">
+<div class="toolbar-group" data-label="样式">
+<button class="tool-btn" onclick="insertTag('b')"><b>B</b></button>
+<button class="tool-btn" onclick="insertTag('i')"><i>I</i></button>
+<button class="tool-btn" onclick="insertTag('u')"><u>U</u></button>
+<button class="tool-btn" onclick="insertTag('s')"><s>S</s></button>
+<button class="tool-btn" onclick="insertTag('sup')">上标</button>
+<button class="tool-btn" onclick="insertTag('sub')">下标</button>
+</div>
+<div class="toolbar-group" data-label="颜色">
+<button class="tool-btn" onclick="openColorModal('color')">颜色</button>
+<button class="tool-btn" onclick="insertTagWithParam('size','36')">字号</button>
+<button class="tool-btn" onclick="openColorModal('mark')">高亮</button>
+</div>
+<div class="toolbar-group" data-label="排版">
+<button class="tool-btn" onclick="insertAlign('left')">左对齐</button>
+<button class="tool-btn" onclick="insertAlign('center')">居中</button>
+<button class="tool-btn" onclick="insertAlign('right')">右对齐</button>
+<button class="tool-btn" onclick="insertTagWithParam('line-height','1.5')">行高</button>
+<button class="tool-btn" onclick="insertTagWithParam('space','10')">间距</button>
+<button class="tool-btn" onclick="insertTagWithParam('cspace','5')">字距</button>
+</div>
+<div class="toolbar-group" data-label="特效">
+<button class="tool-btn" onclick="openGradientModal()">渐变</button>
+<button class="tool-btn" onclick="insertTagWithParam('rotate','45')">旋转</button>
+<button class="tool-btn" onclick="insertTagWithParam('scale','1.5')">缩放</button>
+<button class="tool-btn" onclick="insertTagWithParam('voffset','10')">偏移</button>
+</div>
+</div>
+<div class="status-bar"><span>Ctrl+Shift+C 复制</span></div>
+
+<div class="modal-overlay" id="colorModal">
+<div class="modal">
+<h3 id="colorModalTitle">选择颜色</h3>
+<div class="color-preview" id="colorPreview"><span id="colorPreviewText">预览文字 Preview</span></div>
+<div class="color-input-row">
+<input type="color" id="colorPickerInput" value="#ff5500" title="点击选取色号">
+<input type="text" id="customColor" placeholder="或输入颜色值 (如 #FF5500 / red / #FF5500AA)">
+</div>
+<div class="color-input-row" id="alphaRow" style="display:none">
+<span style="font-size:12px;color:#a6adc8;white-space:nowrap">不透明度 <span id="alphaVal">25%</span></span>
+<input type="range" id="colorAlpha" min="0" max="100" value="25">
+</div>
+<div class="color-grid" id="colorGrid"></div>
+<div class="modal-actions">
+<button class="btn btn-secondary" onclick="closeModal('colorModal')">取消</button>
+<button class="btn btn-primary" onclick="applyCustomColor()">确定</button>
+</div>
+</div>
+</div>
+<div class="modal-overlay" id="gradientModal">
+<div class="modal">
+<h3>渐变颜色</h3>
+<div class="color-preview" id="gradientPreview"><span id="gradientPreviewText">渐变文字预览</span></div>
+<div id="gradientStops"></div>
+<div class="modal-actions" style="justify-content:flex-start">
+<button class="btn btn-secondary" onclick="addGradientStop()">+ 添加颜色</button>
+</div>
+<div class="modal-actions">
+<button class="btn btn-secondary" onclick="closeModal('gradientModal')">取消</button>
+<button class="btn btn-primary" onclick="applyGradient()">确定</button>
+</div>
+</div>
+</div>
+<div class="modal-overlay" id="inputModal">
+<div class="modal">
+<h3 id="inputModalTitle">输入参数</h3>
+<input type="text" id="inputModalValue" placeholder="请输入...">
+<div class="modal-actions">
+<button class="btn btn-secondary" onclick="closeModal('inputModal')">取消</button>
+<button class="btn btn-primary" id="inputModalConfirm">确定</button>
+</div>
+</div>
+</div>
+<div class="modal-overlay" id="confirmModal">
+<div class="modal">
+<h3 id="confirmTitle">确认</h3>
+<p id="confirmMsg">确定要执行此操作吗？</p>
+<div class="modal-actions">
+<button class="btn btn-secondary" onclick="closeModal('confirmModal')">取消</button>
+<button class="btn btn-danger" id="confirmBtn">确定</button>
+</div>
+</div>
+</div>
+<div class="modal-overlay" id="alertModal">
+<div class="modal">
+<h3 id="alertTitle">提示</h3>
+<p id="alertMsg"></p>
+<div class="modal-actions">
+<button class="btn btn-primary" onclick="closeModal('alertModal')">确定</button>
+</div>
+</div>
+</div>
+
+<script>
+const sourceEditor = document.getElementById('sourceEditor');
+const previewArea = document.getElementById('previewArea');
+const charCount = document.getElementById('charCount');
+const COLORS = ['red','green','blue','yellow','cyan','magenta','white','black','orange','purple','brown','grey','silver','maroon','navy','olive','teal','lime','aqua','fuchsia','lightblue','darkblue','#FF5555','#FF9955','#FFFF55','#55FF55','#55FFFF','#5555FF','#FF55FF','#AAAAAA','#555555','#FF0000','#00FF00','#0000FF','#FFAA00','#FF00AA','#00FFAA','#AA00FF','#FF6B6B','#4ECDC4','#45B7D1','#96CEB4'];
+let currentView = 'both', pendingInputCallback = null;
+
+function showModal(id){document.getElementById(id).classList.add('show')}
+function closeModal(id){document.getElementById(id).classList.remove('show')}
+function showAlert(msg, title='提示'){document.getElementById('alertTitle').textContent=title; document.getElementById('alertMsg').textContent=msg; showModal('alertModal')}
+function showConfirm(msg, onConfirm, title='确认'){document.getElementById('confirmTitle').textContent=title; document.getElementById('confirmMsg').textContent=msg; document.getElementById('confirmBtn').onclick=()=>{closeModal('confirmModal'); onConfirm()}; showModal('confirmModal')}
+function showInput(title, placeholder, defaultValue, onConfirm){document.getElementById('inputModalTitle').textContent=title; const inp=document.getElementById('inputModalValue'); inp.placeholder=placeholder; inp.value=defaultValue||''; pendingInputCallback=onConfirm; document.getElementById('inputModalConfirm').onclick=()=>{const v=inp.value.trim(); if(v&&pendingInputCallback)pendingInputCallback(v); closeModal('inputModal')}; showModal('inputModal'); setTimeout(()=>inp.focus(),100)}
+
+const colorPickerInput = document.getElementById('colorPickerInput');
+const customColorInp = document.getElementById('customColor');
+const colorAlpha = document.getElementById('colorAlpha');
+const alphaRow = document.getElementById('alphaRow');
+const alphaVal = document.getElementById('alphaVal');
+const colorPreviewText = document.getElementById('colorPreviewText');
+let colorMode = 'color';
+function alphaHex(){return Math.round(colorAlpha.value*255/100).toString(16).padStart(2,'0')}
+function syncCustomFromPicker(){customColorInp.value = colorPickerInput.value + ((colorMode==='mark' && +colorAlpha.value<100) ? alphaHex() : '')}
+function currentColorValue(){const t=customColorInp.value.trim(); if(t)return t; let c=colorPickerInput.value; if(colorMode==='mark'&&+colorAlpha.value<100)c+=alphaHex(); return c}
+function updateColorPreview(){const s=colorPreviewText.style; const c=currentColorValue(); if(colorMode==='mark'){s.background=c; s.color=''}else{s.background=''; s.color=c}}
+function initColorGrid(){const g=document.getElementById('colorGrid'); COLORS.forEach(c=>{const s=document.createElement('div'); s.className='color-swatch'; s.style.background=c; s.title=c; s.onclick=()=>{customColorInp.value=c; if(/^#[0-9a-fA-F]{6}$/.test(c))colorPickerInput.value=c.toLowerCase(); updateColorPreview()}; g.appendChild(s)})}
+function openColorModal(mode){
+colorMode=mode;
+document.getElementById('colorModalTitle').textContent = (mode==='mark' ? '选择高亮颜色' : '选择文字颜色');
+alphaRow.style.display = (mode==='mark') ? 'flex' : 'none';
+if(mode==='mark'){colorPickerInput.value='#ffff00'; colorAlpha.value=25; alphaVal.textContent='25%'}else{colorPickerInput.value='#ff5500'}
+syncCustomFromPicker(); updateColorPreview(); showModal('colorModal');
+}
+function applyCustomColor(){
+const c=currentColorValue();
+if(colorMode==='mark')insertAtCursor('<mark='+c+'>文字</mark>');
+else insertAtCursor('<color='+c+'>文字</color>');
+closeModal('colorModal');
+}
+colorPickerInput.addEventListener('input',()=>{syncCustomFromPicker(); updateColorPreview()});
+colorAlpha.addEventListener('input',()=>{alphaVal.textContent=colorAlpha.value+'%'; syncCustomFromPicker(); updateColorPreview()});
+customColorInp.addEventListener('input',updateColorPreview);
+
+sourceEditor.addEventListener('input', updatePreview);
+sourceEditor.addEventListener('keyup', updateCharCount);
+sourceEditor.addEventListener('click', updateCharCount);
+previewArea.addEventListener('input', syncPreviewToSource);
+
+function updateCharCount(){charCount.textContent=sourceEditor.value.length+' 字符'}
+
+function setView(v){
+currentView=v;
+const sp=document.getElementById('sourcePanel'), pp=document.getElementById('previewPanel');
+document.querySelectorAll('.header .btn-secondary').forEach(b=>b.classList.remove('active'));
+if(v==='both'){sp.style.display='flex'; pp.style.display='flex'; document.getElementById('btnBoth').classList.add('active')}
+else if(v==='source'){sp.style.display='flex'; pp.style.display='none'; document.getElementById('btnSource').classList.add('active')}
+else{sp.style.display='none'; pp.style.display='flex'; document.getElementById('btnPreview').classList.add('active')}
+}
+
+function updatePreview(){
+const src=sourceEditor.value;
+previewArea.innerHTML = convertTmpToHtml(src);
+updateCharCount();
+}
+
+function syncPreviewToSource(){
+const html=previewArea.innerHTML;
+sourceEditor.value = convertHtmlToTmp(html);
+updateCharCount();
+}
+
+function convertTmpToHtml(text){
+let h = text;
+h = h.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+h = h.replace(/&lt;br\s*\/?\s*&gt;/gi,'<br>');
+h = h.replace(/&lt;link\s*=\s*&quot;([^&]*)&quot;&gt;([\s\S]*?)&lt;\/link&gt;/gi,'<a href="#" style="color:#89b4fa;text-decoration:underline" title="link: $1">$2</a>');
+h = h.replace(/&lt;link\s*=\s*([^&\s]+)&gt;([\s\S]*?)&lt;\/link&gt;/gi,'<a href="#" style="color:#89b4fa;text-decoration:underline" title="link: $1">$2</a>');
+h = h.replace(/&lt;style\s*=\s*&quot;([^&]*)&quot;&gt;([\s\S]*?)&lt;\/style&gt;/gi,'<span style="border:1px dashed #89b4fa;padding:0 2px" title="style: $1">$2</span>');
+h = h.replace(/&lt;sprite\s+index\s*=\s*(\d+)[^&]*\/?\s*&gt;/gi,'<span style="background:#45475a;padding:1px 6px;border-radius:3px;font-size:11px" title="sprite $1">[sprite:$1]</span>');
+h = h.replace(/&lt;material\s*=\s*(\d+)&gt;([\s\S]*?)&lt;\/material&gt;/gi,'<span style="border:1px dashed #f9e2af;padding:0 2px" title="material: $1">$2</span>');
+h = h.replace(/&lt;page&gt;/gi,'<hr style="border-color:#45475a;margin:8px 0"><span style="font-size:10px;color:#6c7086">[page]</span> ');
+h = h.replace(/&lt;font\s*=\s*&quot;([^&]*)&quot;[^&]*&gt;([\s\S]*?)&lt;\/font&gt;/gi,'<span title="font: $1">$2</span>');
+h = h.replace(/&lt;font\s*=\s*([^&\s]+)[^&]*&gt;([\s\S]*?)&lt;\/font&gt;/gi,'<span title="font: $1">$2</span>');
+h = h.replace(/&lt;gradient\s*=\s*&quot;([^&]*)&quot;&gt;([\s\S]*?)&lt;\/gradient&gt;/gi,(m,g,t)=>{const cs=g.split(',').map(c=>c.trim()); const bg=cs.length>1?'linear-gradient(90deg,'+cs.join(',')+')':cs[0]; return cs.length>1?'<span style="background:'+bg+';-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">'+t+'</span>':'<span style="color:'+cs[0]+'">'+t+'</span>'});
+h = h.replace(/&lt;gradient\s*=\s*([^&\s]+)&gt;([\s\S]*?)&lt;\/gradient&gt;/gi,(m,g,t)=>{const cs=g.split(',').map(c=>c.trim()); const bg=cs.length>1?'linear-gradient(90deg,'+cs.join(',')+')':cs[0]; return cs.length>1?'<span style="background:'+bg+';-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">'+t+'</span>':'<span style="color:'+cs[0]+'">'+t+'</span>'});
+h = h.replace(/&lt;align\s*=\s*&quot;([^&]*)&quot;&gt;([\s\S]*?)&lt;\/align&gt;/gi,(m,a,t)=>'<div style="text-align:'+a+'">'+t+'</div>');
+h = h.replace(/&lt;align\s*=\s*([^&\s]+)&gt;([\s\S]*?)&lt;\/align&gt;/gi,(m,a,t)=>'<div style="text-align:'+a+'">'+t+'</div>');
+h = h.replace(/&lt;line-height\s*=\s*&quot;([^&]*)&quot;&gt;([\s\S]*?)&lt;\/line-height&gt;/gi,(m,v,t)=>'<span style="line-height:'+v+';display:inline-block">'+t+'</span>');
+h = h.replace(/&lt;line-height\s*=\s*([^&\s]+)&gt;([\s\S]*?)&lt;\/line-height&gt;/gi,(m,v,t)=>'<span style="line-height:'+v+';display:inline-block">'+t+'</span>');
+h = h.replace(/&lt;space\s*=\s*&quot;([^&]*)&quot;\s*\/?\s*&gt;/gi,(m,v)=>'<span style="display:inline-block;width:'+v+'px"></span>');
+h = h.replace(/&lt;space\s*=\s*([^&\s]+)\s*\/?\s*&gt;/gi,(m,v)=>'<span style="display:inline-block;width:'+v+'px"></span>');
+h = h.replace(/&lt;cspace\s*=\s*&quot;([^&]*)&quot;&gt;([\s\S]*?)&lt;\/cspace&gt;/gi,(m,v,t)=>'<span style="letter-spacing:'+v+'px">'+t+'</span>');
+h = h.replace(/&lt;cspace\s*=\s*([^&\s]+)&gt;([\s\S]*?)&lt;\/cspace&gt;/gi,(m,v,t)=>'<span style="letter-spacing:'+v+'px">'+t+'</span>');
+h = h.replace(/&lt;mark\s*=\s*&quot;([^&]*)&quot;&gt;([\s\S]*?)&lt;\/mark&gt;/gi,(m,c,t)=>'<span style="background:'+c+';padding:0 2px;border-radius:2px">'+t+'</span>');
+h = h.replace(/&lt;mark\s*=\s*([^&\s]+)&gt;([\s\S]*?)&lt;\/mark&gt;/gi,(m,c,t)=>'<span style="background:'+c+';padding:0 2px;border-radius:2px">'+t+'</span>');
+h = h.replace(/&lt;voffset\s*=\s*&quot;([^&]*)&quot;&gt;([\s\S]*?)&lt;\/voffset&gt;/gi,(m,v,t)=>'<span style="vertical-align:'+v+'px">'+t+'</span>');
+h = h.replace(/&lt;voffset\s*=\s*([^&\s]+)&gt;([\s\S]*?)&lt;\/voffset&gt;/gi,(m,v,t)=>'<span style="vertical-align:'+v+'px">'+t+'</span>');
+h = h.replace(/&lt;size\s*=\s*&quot;([^&]*)&quot;&gt;([\s\S]*?)&lt;\/size&gt;/gi,(m,v,t)=>'<span style="font-size:'+v+'">'+t+'</span>');
+h = h.replace(/&lt;size\s*=\s*([^&\s]+)&gt;([\s\S]*?)&lt;\/size&gt;/gi,(m,v,t)=>'<span style="font-size:'+v+'">'+t+'</span>');
+h = h.replace(/&lt;color\s*=\s*&quot;([^&]*)&quot;&gt;([\s\S]*?)&lt;\/color&gt;/gi,(m,c,t)=>'<span style="color:'+c+'">'+t+'</span>');
+h = h.replace(/&lt;color\s*=\s*([^&\s]+)&gt;([\s\S]*?)&lt;\/color&gt;/gi,(m,c,t)=>'<span style="color:'+c+'">'+t+'</span>');
+h = h.replace(/&lt;p\s*\/?\s*&gt;/gi,'<br>');
+h = h.replace(/&lt;\/?p\s*&gt;/gi,'<br>');
+h = h.replace(/&lt;b\s*\/?\s*&gt;/gi,'<b>');
+h = h.replace(/&lt;\/b&gt;/gi,'</b>');
+h = h.replace(/&lt;i\s*\/?\s*&gt;/gi,'<i>');
+h = h.replace(/&lt;\/i&gt;/gi,'</i>');
+h = h.replace(/&lt;u\s*\/?\s*&gt;/gi,'<u>');
+h = h.replace(/&lt;\/u&gt;/gi,'</u>');
+h = h.replace(/&lt;s\s*\/?\s*&gt;/gi,'<s>');
+h = h.replace(/&lt;\/s&gt;/gi,'</s>');
+h = h.replace(/&lt;sup\s*\/?\s*&gt;/gi,'<sup>');
+h = h.replace(/&lt;\/sup&gt;/gi,'</sup>');
+h = h.replace(/&lt;sub\s*\/?\s*&gt;/gi,'<sub>');
+h = h.replace(/&lt;\/sub&gt;/gi,'</sub>');
+h = h.replace(/&lt;rotate\s*=\s*&quot;([^&]*)&quot;&gt;([\s\S]*?)&lt;\/rotate&gt;/gi,(m,v,t)=>'<span style="transform:rotate('+v+'deg);display:inline-block">'+t+'</span>');
+h = h.replace(/&lt;rotate\s*=\s*([^&\s]+)&gt;([\s\S]*?)&lt;\/rotate&gt;/gi,(m,v,t)=>'<span style="transform:rotate('+v+'deg);display:inline-block">'+t+'</span>');
+h = h.replace(/&lt;scale\s*=\s*&quot;([^&]*)&quot;&gt;([\s\S]*?)&lt;\/scale&gt;/gi,(m,v,t)=>'<span style="transform:scale('+v+');display:inline-block">'+t+'</span>');
+h = h.replace(/&lt;scale\s*=\s*([^&\s]+)&gt;([\s\S]*?)&lt;\/scale&gt;/gi,(m,v,t)=>'<span style="transform:scale('+v+');display:inline-block">'+t+'</span>');
+return h;
+}
+
+function convertHtmlToTmp(html){
+let t = html;
+t = t.replace(/<br\s*\/?>/gi, '<p>');
+t = t.replace(/<a[^>]*href="[^"]*"[^>]*>(.*?)<\/a>/gi, '<link="$1"></link>');
+t = t.replace(/<span[^>]*style="[^"]*color:\s*([^";]+)[^"]*"[^>]*>(.*?)<\/span>/gi, '<color=$1>$2</color>');
+t = t.replace(/<span[^>]*style="[^"]*background:\s*([^";]+)[^"]*"[^>]*>(.*?)<\/span>/gi, '<mark=$1>$2</mark>');
+t = t.replace(/<span[^>]*style="[^"]*font-size:\s*([^";]+)[^"]*"[^"]*>(.*?)<\/span>/gi, '<size=$1>$2</size>');
+t = t.replace(/<b>(.*?)<\/b>/gi, '<b>$1</b>');
+t = t.replace(/<i>(.*?)<\/i>/gi, '<i>$1</i>');
+t = t.replace(/<u>(.*?)<\/u>/gi, '<u>$1</u>');
+t = t.replace(/<s>(.*?)<\/s>/gi, '<s>$1</s>');
+t = t.replace(/<sup>(.*?)<\/sup>/gi, '<sup>$1</sup>');
+t = t.replace(/<sub>(.*?)<\/sub>/gi, '<sub>$1</sub>');
+t = t.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
+return t;
+}
+
+function insertAtCursor(text){
+const ta=sourceEditor, start=ta.selectionStart, end=ta.selectionEnd;
+const val=ta.value;
+ta.value = val.substring(0,start) + text + val.substring(end);
+ta.selectionStart = ta.selectionEnd = start + text.length;
+ta.focus();
+updatePreview();
+}
+
+function insertTag(tag){
+insertAtCursor('<'+tag+'>文字</'+tag+'>');
+}
+
+function insertTagWithParam(tag, defaultVal){
+showInput('参数 '+tag, '请输入 '+tag+' 的值', defaultVal, function(val){
+insertAtCursor('<'+tag+'='+val+'>文字</'+tag+'>');
+});
+}
+
+function insertAlign(align){
+insertAtCursor('<align='+align+'>文字</align>');
+}
+
+let gradStops = ['#89b4fa','#f38ba8'];
+const gradientPreviewText = document.getElementById('gradientPreviewText');
+function updateGradientPreview(){
+const s = gradientPreviewText.style;
+s.background = 'linear-gradient(90deg,'+gradStops.join(',')+')';
+s.webkitBackgroundClip='text'; s.backgroundClip='text';
+s.webkitTextFillColor='transparent'; s.color='transparent';
+}
+function renderGradientStops(){
+const box=document.getElementById('gradientStops'); box.innerHTML='';
+gradStops.forEach((c,i)=>{
+const row=document.createElement('div'); row.className='color-input-row';
+const inp=document.createElement('input'); inp.type='color'; inp.title='点击选取色号';
+inp.value = /^#[0-9a-fA-F]{6}$/.test(c) ? c : '#ffffff';
+const lab=document.createElement('span'); lab.className='stop-label'; lab.textContent=inp.value.toUpperCase();
+inp.addEventListener('input',()=>{gradStops[i]=inp.value; lab.textContent=inp.value.toUpperCase(); updateGradientPreview()});
+const del=document.createElement('button'); del.className='btn btn-danger'; del.textContent='删除';
+del.disabled = gradStops.length<=2;
+del.onclick=()=>{gradStops.splice(i,1); renderGradientStops()};
+row.appendChild(inp); row.appendChild(lab); row.appendChild(del);
+box.appendChild(row);
+});
+updateGradientPreview();
+}
+function openGradientModal(){renderGradientStops(); showModal('gradientModal')}
+function addGradientStop(){
+if(gradStops.length>=6){showAlert('最多支持 6 个渐变色'); return}
+gradStops.push('#f9e2af'); renderGradientStops();
+}
+function applyGradient(){
+if(gradStops.length<2){showAlert('至少需要 2 个渐变色'); return}
+insertAtCursor('<gradient='+gradStops.join(',')+'>渐变文字</gradient>');
+closeModal('gradientModal');
+}
+
+function copyToClipboard(){
+const text = sourceEditor.value;
+navigator.clipboard.writeText(text).then(()=>{
+showAlert('已成功复制到剪贴板！');
+}).catch(()=>{
+const ta = document.createElement('textarea');
+ta.value = text;
+document.body.appendChild(ta);
+ta.select();
+document.execCommand('copy');
+document.body.removeChild(ta);
+showAlert('已成功复制到剪贴板！');
+});
+}
+
+function formatCode(){
+let code = sourceEditor.value;
+code = code.replace(/\s*<\s*/g, '<').replace(/\s*>\s*/g, '>');
+code = code.replace(/<\/\s*/g, '</');
+sourceEditor.value = code;
+updatePreview();
+showAlert('代码已格式化');
+}
+
+function confirmClear(){
+showConfirm('确定要清空编辑器内容吗？此操作不可撤销。', function(){
+sourceEditor.value = '';
+updatePreview();
+showAlert('编辑器已清空');
+});
+}
+
+document.addEventListener('keydown', function(e){
+if(e.ctrlKey && e.shiftKey && e.key==='C'){
+e.preventDefault();
+copyToClipboard();
+}
+});
+
+document.querySelectorAll('.modal-overlay').forEach(m=>{
+m.addEventListener('click', function(e){
+if(e.target===this) closeModal(this.id);
+});
+});
+
+initColorGrid();
+updatePreview();
+</script>
+</body>
+</html>
